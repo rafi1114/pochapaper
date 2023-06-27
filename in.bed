@@ -1,0 +1,108 @@
+units		metal
+
+dimension	3
+boundary	p p s
+
+atom_style	atomic
+
+
+lattice	fcc 3.571
+region		setup block -25 300 -25 300 -25 75 units box
+region		bed block 0 180 0 180 -3 5 units box
+region		bedmid block 0 180 0 180 0 2 units box
+region		bedtop block 0 180 0 180 2 5 units box
+region		bedlow block 0 180 0 180 -3 0 units box
+create_box	3 setup
+create_atoms	1 region bed
+mass		1 55.845
+group		bed region bed
+group 		bedtop region bedtop
+group		bedlow region bedlow
+group		bedmid region bedmid
+
+
+
+#20 55 90 125 160
+
+read_data 	create_ball/ball.data add append shift 20 20 22 group hotball
+read_data 	create_ball/ball.data add append shift 55 20 22 group hotball
+read_data 	create_ball/ball.data add append shift 90 20 22 group hotball
+read_data 	create_ball/ball.data add append  shift 125 20 22 group hotball
+read_data 	create_ball/ball.data add append shift 160 20 22 group hotball
+read_data 	create_ball/ball.data add append  shift 20 55 22 group hotball
+read_data 	create_ball/ball.data add append  shift 55 55 22 group hotball
+read_data 	create_ball/ball.data add append  shift 90 55 22 group hotball
+read_data 	create_ball/ball.data add append  shift 125 55 22 group hotball
+read_data 	create_ball/ball.data add append shift 160 55 22 group hotball
+read_data 	create_ball/ball.data add append shift 20 90 22 group hotball
+read_data 	create_ball/ball.data add append shift 55 90 22 group hotball
+read_data 	create_ball/ball.data add append  shift 90 90 22 group hotball
+read_data 	create_ball/ball.data add append shift 125 90 22 group hotball
+read_data 	create_ball/ball.data add append  shift 160 90 22 group hotball
+read_data 	create_ball/ball.data add append  shift 20 125 22 group hotball
+read_data 	create_ball/ball.data add append  shift 55 125 22 group hotball
+read_data 	create_ball/ball.data add append  shift 90 125 22 group hotball
+read_data 	create_ball/ball.data add append shift 125 125 22 group hotball
+read_data 	create_ball/ball.data add append  shift 160 125 22 group hotball
+read_data 	create_ball/ball.data add append shift 20 160 22 group hotball
+read_data 	create_ball/ball.data add append  shift 55 160 22 group hotball
+read_data 	create_ball/ball.data add append  shift 90 160 22 group hotball
+read_data 	create_ball/ball.data add append  shift 125 160 22 group hotball
+read_data 	create_ball/ball.data add append  shift 160 160 22 group hotball
+
+
+
+pair_style	eam/fs
+pair_coeff	* * Fe-Ni-Cr_fcc.eam.fs Fe Ni Cr
+
+
+delete_atoms	overlap 0.1 all all
+
+group 		active subtract all bedlow
+
+
+
+######specified dynamic region for laser 
+variable	dy equal ramp(0,100)        #scanning speed
+region		mover block 55 125 -10 60 0 50  units box move NULL v_dy NULL  #region that moves
+group		mover dynamic all region mover		#group moves with region
+
+velocity 	all create 300.0 3213112 mom no rot no dist gaussian
+
+
+timestep 	0.001
+
+
+
+restart	20000 restart.*.layer1
+
+compute	ke all ke/atom
+compute	templaser all temp/region mover
+
+thermo         100
+thermo_style 	custom step temp etotal c_templaser 
+dump 		1 all custom 1000 tmp.dump id type x y z c_ke 
+
+
+#relax
+fix		1 active nve
+fix		2 bedlow setforce 0.0 0.0 0.0 
+fix		3 bedmid langevin 300 300 0.1 12345
+fix 		top all wall/reflect zhi EDGE
+run 		10000
+
+#write_data	bednballs.data 
+
+
+#laser operation 
+fix		laser all ehex 1 1500 region mover  #applying laser on the moving region
+run 		25000
+unfix		laser	
+
+
+#cooling
+run		100000
+
+
+
+
